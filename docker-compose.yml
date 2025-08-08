@@ -1,0 +1,139 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: port-finder-postgres
+    environment:
+      POSTGRES_DB: port_finder
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    networks:
+      - port-finder-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: port-finder-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - port-finder-network
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: port-finder-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - port-finder-network
+
+  # PgAdmin for Database Management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: port-finder-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@portfinder.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - port-finder-network
+    depends_on:
+      - postgres
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/misc/ping" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./services/api-gateway/Dockerfile
+    container_name: port-finder-api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT_SERVICE_URL=http://port-service:3001
+      - LOCATION_SERVICE_URL=http://location-service:3002
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672
+    depends_on:
+      - redis
+      - rabbitmq
+      - port-service
+      - location-service
+    networks:
+      - port-finder-network
+
+  # Port Service
+  port-service:
+    build:
+      context: .
+      dockerfile: ./services/port-service/Dockerfile
+    container_name: port-finder-port-service
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/port_finder
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - port-finder-network
+
+  # Location Service
+  location-service:
+    build:
+      context: .
+      dockerfile: ./services/location-service/Dockerfile
+    container_name: port-finder-location-service
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/port_finder
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - port-finder-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  pgadmin_data:
+
+
+networks:
+  port-finder-network:
+    driver: bridge

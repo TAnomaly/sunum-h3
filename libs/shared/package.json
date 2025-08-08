@@ -1,0 +1,21 @@
+{
+    "name": "@port-finder/shared",
+    "version": "1.0.0",
+    "description": "Shared library for port finder microservices",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "class-validator": "^0.14.0",
+        "class-transformer": "^0.5.1",
+        "uuid": "^9.0.0"
+    },
+    "devDependencies": {
+        "@types/uuid": "^9.0.0",
+        "typescript": "^5.0.0"
+    }
+}

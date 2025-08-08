@@ -1,0 +1,21 @@
+{
+    "name": "port-finder-microservices",
+    "version": "1.0.0",
+    "description": "Mikroservis mimarisi ile en yakın liman bulma sistemi",
+    "scripts": {
+        "build": "npm run build:shared && npm run build:services",
+        "build:shared": "cd libs/shared && npm run build",
+        "build:services": "npm run build:port-service && npm run build:location-service && npm run build:api-gateway",
+        "build:port-service": "cd services/port-service && npm run build",
+        "build:location-service": "cd services/location-service && npm run build",
+        "build:api-gateway": "cd services/api-gateway && npm run build",
+        "dev": "docker-compose up -d",
+        "dev:services": "concurrently \"npm run dev:port-service\" \"npm run dev:location-service\" \"npm run dev:api-gateway\"",
+        "dev:port-service": "cd services/port-service && npm run start:dev",
+        "dev:location-service": "cd services/location-service && npm run start:dev",
+        "dev:api-gateway": "cd services/api-gateway && npm run start:dev"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
+}
