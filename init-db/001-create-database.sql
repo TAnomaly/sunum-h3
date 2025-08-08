@@ -51,24 +51,9 @@ CREATE INDEX IF NOT EXISTS idx_outbox_aggregate_id ON outbox_events(aggregate_id
 CREATE INDEX IF NOT EXISTS idx_outbox_event_type ON outbox_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox_events(status) WHERE status = 'PENDING';
 
--- Insert sample port data
-INSERT INTO ports (name, code, country, latitude, longitude, h3_index) VALUES
-    ('Port of Istanbul', 'TRIST', 'Turkey', 41.0082, 28.9784, ''),
-    ('Port of Izmir', 'TRIZM', 'Turkey', 38.4237, 27.1428, ''),
-    ('Port of Mersin', 'TRMER', 'Turkey', 36.8121, 34.6415, ''),
-    ('Port of Hamburg', 'DEHAM', 'Germany', 53.5511, 9.9937, ''),
-    ('Port of Rotterdam', 'NLRTM', 'Netherlands', 51.9244, 4.4777, ''),
-    ('Port of Antwerp', 'BEANR', 'Belgium', 51.2194, 4.4025, ''),
-    ('Port of Barcelona', 'ESBCN', 'Spain', 41.3851, 2.1734, ''),
-    ('Port of Marseille', 'FRMRS', 'France', 43.2965, 5.3698, ''),
-    ('Port of Piraeus', 'GRPIR', 'Greece', 37.9755, 23.6348, ''),
-    ('Port of Genoa', 'ITGOA', 'Italy', 44.4056, 8.9463, ''),
-    ('Port of Valencia', 'ESVLC', 'Spain', 39.4699, -0.3763, ''),
-    ('Port of Le Havre', 'FRLEH', 'France', 49.4944, 0.1079, ''),
-    ('Port of Algeciras', 'ESALG', 'Spain', 36.1408, -5.4526, ''),
-    ('Port of Gioia Tauro', 'ITGIT', 'Italy', 38.4249, 15.8983, ''),
-    ('Port of Constantza', 'ROCND', 'Romania', 44.1598, 28.6348, '')
-ON CONFLICT (code) DO NOTHING;
+-- NOTE: Otomatik örnek port ekleme kaldırıldı.
+-- Prod/doğru kullanım için portlar API üzerinden oluşturulmalıdır.
+-- Örnek seed için `init-db/002-seed-sample-ports.sql.example` dosyasına bakınız.
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

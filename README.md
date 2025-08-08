@@ -145,7 +145,7 @@ curl -X POST http://localhost:3002/location/nearest-port \
 }
 ```
 
-### Yeni Liman Ekleme
+### Yeni Liman Ekleme (Önerilen: HTTP Endpoint)
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/ports \
@@ -160,6 +160,8 @@ curl -X POST http://localhost:3000/api/v1/ports \
     }
   }'
 ```
+
+> Not: Prod ortamında veri ekleme kod içine gömülü seed ile yapılmamalıdır. İhtiyaç halinde `init-db/002-seed-sample-ports.sql.example` dosyasını yerelde `.sql` uzantısıyla aktif hale getirip kullanabilirsiniz, ancak kalıcı kullanım için API üzerinden yönetim önerilir.
 
 ### Belirli Yarıçaptaki Limanları Bulma
 

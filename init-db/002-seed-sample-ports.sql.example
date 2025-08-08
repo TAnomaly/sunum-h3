@@ -1,0 +1,10 @@
+-- OPTIONAL: Sample seed file for local testing only
+-- Rename to 002-seed-sample-ports.sql and place under init-db to auto-seed
+
+INSERT INTO ports (name, code, country, latitude, longitude, h3_index) VALUES
+    ('Port of Istanbul', 'TRIST', 'Turkey', 41.0082, 28.9784, ''),
+    ('Port of Izmir', 'TRIZM', 'Turkey', 38.4237, 27.1428, ''),
+    ('Port of Mersin', 'TRMER', 'Turkey', 36.8121, 34.6415, '');
+
+-- NOTE: For production, use HTTP API to create ports instead of SQL seed.
+
