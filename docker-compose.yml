@@ -29,6 +29,11 @@ services:
       - redis_data:/data
     networks:
       - port-finder-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   # RabbitMQ Message Broker
   rabbitmq:
@@ -44,6 +49,11 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - port-finder-network
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   # PgAdmin for Database Management
   pgadmin:
@@ -84,10 +94,14 @@ services:
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672
     depends_on:
-      - redis
-      - rabbitmq
-      - port-service
-      - location-service
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      port-service:
+        condition: service_started
+      location-service:
+        condition: service_started
     networks:
       - port-finder-network
 
@@ -128,9 +142,12 @@ services:
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672
     depends_on:
-      - postgres
-      - redis
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - port-finder-network
 

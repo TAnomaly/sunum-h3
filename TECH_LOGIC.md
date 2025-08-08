@@ -92,6 +92,7 @@
 
 ### 10) Konfigürasyon (Development)
 - `config/development.env` içinde: `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, `PORT_SERVICE_URL`, `LOCATION_SERVICE_URL`
+  - Port Service: TypeORM migrations aktif; `synchronize=false`. Docker start’ında migration’lar otomatik uygulanır.
 
 ### 11) Bu Kullanımlar “Doğru” mu?
 - CQRS ayrımı: Doğru – yazma modeli (Port Service) ile okuma modeli (Location Service) ayrı
@@ -108,6 +109,7 @@
 - Redis: metrikler (hit oranı), namespaced anahtarlar, cluster hazırlığı, daha akıllı nearest invalidation penceresi
 - Observability: OpenTelemetry tracing, Prometheus metrikleri, JSON log (correlationId)
 - API: Gateway-level kısa TTL cache, servisler arası tutarlı DTO validasyonu
+ - DB: Diğer servisler gerekirse aynı migration yaklaşımına geçirilebilir; init-db mount’u prod’da kullanılmaz.
 
 ### 13) Hızlı Referans – Ne Nerede
 - H3 mantığı: `services/location-service/src/domain/services/location-calculation.service.ts`

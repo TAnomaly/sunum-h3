@@ -194,6 +194,16 @@ curl -X POST http://localhost:3000/api/v1/location/ports-in-radius \
 
 ## 🔧 Development
 
+### Veritabanı Şeması (Migrations ile Otomatik Kurulum)
+
+- Port Service, TypeORM migrations ile şemayı oluşturur (synchronize kapalıdır).
+- `docker-compose` ile stack ayağa kalktığında, Postgres için healthcheck beklenir ve Port Service start alırken migration’lar otomatik çalışır.
+- `init-db` altındaki otomatik örnek veri ekleme kaldırılmıştır. Gerekirse API üzerinden port oluşturun.
+
+PgAdmin ile bağlantı (isteğe bağlı):
+- Sunucu: Host `postgres`, Port `5432`, Username `postgres`, Password `postgres123`
+- DB: `port_finder`
+
 ### Makefile Komutları
 
 ```bash
