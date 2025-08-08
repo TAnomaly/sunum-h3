@@ -18,12 +18,13 @@ async function bootstrap() {
     // Compression middleware
     app.use(compression());
 
-    // Global validation pipe
+    // Global validation pipe (merkezi ayar)
     app.useGlobalPipes(new ValidationPipe({
         transform: true,
         whitelist: true,
-        forbidNonWhitelisted: true,
-        disableErrorMessages: process.env.NODE_ENV === 'production',
+        forbidNonWhitelisted: false,
+        enableDebugMessages: process.env.NODE_ENV !== 'production',
+        transformOptions: { enableImplicitConversion: true },
     }));
 
     // CORS

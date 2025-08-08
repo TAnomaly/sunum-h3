@@ -10,8 +10,6 @@ import {
     HttpStatus,
     HttpException,
     Logger,
-    ValidationPipe,
-    UsePipes,
     UseGuards,
     UseInterceptors
 } from '@nestjs/common';
@@ -30,7 +28,6 @@ import { LocationClient, LocationInfoDto, PortsInRadiusDto } from '../../infrast
 
 @ApiTags('Port Finder API')
 @Controller('api/v1')
-@UsePipes(new ValidationPipe({ transform: true }))
 @UseGuards(ThrottlerGuard)
 export class GatewayController {
     private readonly logger = new Logger(GatewayController.name);
