@@ -35,8 +35,13 @@ import { PortController } from './application/controllers/port.controller';
                 type: 'postgres',
                 url: configService.get<string>('DATABASE_URL'),
                 entities: [PortEntity, OutboxEventEntity],
-                synchronize: process.env.NODE_ENV === 'development',
+                synchronize: false,
                 logging: process.env.NODE_ENV === 'development',
+                migrations: [
+                    // dist path for compiled migrations
+                    __dirname + '/infrastructure/persistence/migrations/*{.ts,.js}'
+                ],
+                migrationsRun: true,
                 retryAttempts: 3,
                 retryDelay: 3000,
             }),

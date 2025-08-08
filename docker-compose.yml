@@ -11,9 +11,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db:/docker-entrypoint-initdb.d
     networks:
       - port-finder-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d port_finder" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   # Redis Cache
   redis:
@@ -101,9 +105,12 @@ services:
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672
     depends_on:
-      - postgres
-      - redis
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
     networks:
       - port-finder-network
 
