@@ -219,7 +219,8 @@ export class PortController {
                 },
                 radiusKm: { type: 'number', example: 100 }
             },
-            required: ['coordinate']
+            required: ['coordinate'],
+            example: { coordinate: { latitude: 20.0082001, longitude: 28.9784 } }
         }
     })
     async findNearbyPorts(@Body() findNearestDto: FindNearestPortDto): Promise<PortResponseDto[]> {

@@ -11,7 +11,7 @@ import {
     UsePipes
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
-import { IsNumber, IsOptional, ValidateNested, Min, Max } from 'class-validator';
+import { IsNumber, IsOptional, ValidateNested, Min, Max, IsDefined } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
     FindNearestPortDto,
@@ -41,6 +41,7 @@ export class LocalCoordinateDto {
 }
 
 export class LocalFindNearestPortDto {
+    @IsDefined({ message: 'coordinate is required' })
     @ValidateNested()
     @Type(() => LocalCoordinateDto)
     coordinate: LocalCoordinateDto;
@@ -52,6 +53,7 @@ export class LocalFindNearestPortDto {
 }
 
 export class PortsInRadiusDto {
+    @IsDefined({ message: 'coordinate is required' })
     @ValidateNested()
     @Type(() => LocalCoordinateDto)
     coordinate: LocalCoordinateDto;
@@ -63,7 +65,7 @@ export class PortsInRadiusDto {
 
 @ApiTags('Location')
 @Controller('location')
-
+@UsePipes(new ValidationPipe({ transform: true }))
 export class LocationController {
     private readonly logger = new Logger(LocationController.name);
 
@@ -75,24 +77,24 @@ export class LocationController {
     @ApiResponse({ status: 404, description: 'No port found within radius' })
     @ApiResponse({ status: 400, description: 'Invalid coordinates' })
     @ApiBody({
-        description: 'Coordinates (radius optional; omitted => progressive widen)',
+        description: 'Coordinates',
         schema: {
             type: 'object',
             properties: {
                 coordinate: {
                     type: 'object',
                     properties: {
-                        latitude: { type: 'number', example: 41.0255 },
-                        longitude: { type: 'number', example: 28.9738 }
+                        latitude: { type: 'number', example: 20.0082001 },
+                        longitude: { type: 'number', example: 28.9784 }
                     },
                     required: ['latitude', 'longitude']
-                },
-                radiusKm: { type: 'number', example: 100, nullable: true }
+                }
             },
-            required: ['coordinate']
+            required: ['coordinate'],
+            example: { coordinate: { latitude: 20.0082001, longitude: 28.9784 } }
         }
     })
-    async findNearestPort(@Body() findNearestDto: any): Promise<NearestPortResponseDto> {
+    async findNearestPort(@Body() findNearestDto: LocalFindNearestPortDto): Promise<NearestPortResponseDto> {
         try {
             this.logger.debug(`Finding nearest port for coordinates: ${JSON.stringify(findNearestDto.coordinate)}`);
 
@@ -157,7 +159,7 @@ export class LocationController {
             required: ['coordinate', 'radiusKm']
         }
     })
-    async findPortsInRadius(@Body() portsInRadiusDto: any): Promise<NearestPortResponseDto[]> {
+    async findPortsInRadius(@Body() portsInRadiusDto: PortsInRadiusDto): Promise<NearestPortResponseDto[]> {
         try {
             this.logger.debug(`Finding ports in radius: ${portsInRadiusDto.radiusKm}km`);
 

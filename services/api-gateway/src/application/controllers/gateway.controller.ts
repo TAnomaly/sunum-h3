@@ -24,7 +24,7 @@ import {
     CoordinateDto
 } from '@port-finder/shared';
 import { PortClient } from '../../infrastructure/clients/port.client';
-import { LocationClient, LocationInfoDto, PortsInRadiusDto } from '../../infrastructure/clients/location.client';
+import { LocationClient, LocationInfoDto } from '../../infrastructure/clients/location.client';
 
 @ApiTags('Port Finder API')
 @Controller('api/v1')
@@ -125,17 +125,21 @@ export class GatewayController {
     @ApiResponse({ status: 400, description: 'Invalid coordinates' })
 
     @ApiBody({
-        description: 'Coordinates (radius is optional; if omitted, system widens progressively)',
-        type: FindNearestPortDto,
-        examples: {
-            noRadius: {
-                summary: 'Without radius',
-                value: { coordinate: { latitude: 41.0255, longitude: 28.9738 } }
+        description: 'Coordinates',
+        schema: {
+            type: 'object',
+            properties: {
+                coordinate: {
+                    type: 'object',
+                    properties: {
+                        latitude: { type: 'number', example: 20.0082001 },
+                        longitude: { type: 'number', example: 28.9784 }
+                    },
+                    required: ['latitude', 'longitude']
+                }
             },
-            withRadius: {
-                summary: 'With radius',
-                value: { coordinate: { latitude: 41.0255, longitude: 28.9738 }, radiusKm: 100 }
-            }
+            required: ['coordinate'],
+            example: { coordinate: { latitude: 20.0082001, longitude: 28.9784 } }
         }
     })
     async findNearestPort(@Body() findNearestDto: FindNearestPortDto): Promise<NearestPortResponseDto> {
@@ -148,10 +152,27 @@ export class GatewayController {
     @ApiResponse({ status: 200, description: 'Ports found within radius', type: [NearestPortResponseDto] })
     @ApiResponse({ status: 400, description: 'Invalid coordinates or radius' })
 
-    @ApiBody({ description: 'Coordinates and radius', type: PortsInRadiusDto })
-    async findPortsInRadius(@Body() portsInRadiusDto: PortsInRadiusDto): Promise<NearestPortResponseDto[]> {
+    @ApiBody({
+        description: 'Coordinates and radius',
+        schema: {
+            type: 'object',
+            properties: {
+                coordinate: {
+                    type: 'object',
+                    properties: {
+                        latitude: { type: 'number', example: 41.0255 },
+                        longitude: { type: 'number', example: 28.9738 }
+                    },
+                    required: ['latitude', 'longitude']
+                },
+                radiusKm: { type: 'number', example: 50 }
+            },
+            required: ['coordinate', 'radiusKm']
+        }
+    })
+    async findPortsInRadius(@Body() portsInRadiusDto: { coordinate: CoordinateDto; radiusKm: number }): Promise<NearestPortResponseDto[]> {
         this.logger.debug(`API Gateway: Finding ports in radius`);
-        return this.locationClient.findPortsInRadius(portsInRadiusDto);
+        return this.locationClient.findPortsInRadius(portsInRadiusDto as any);
     }
 
     @Post('ports/find-nearby')
