@@ -44,13 +44,22 @@ export class LocationDomainService {
                 return cachedResult;
             }
 
-            // Önce H3 ile bulmaya çalış
+            // Önce H3 ile bulmaya çalış (ring tabanlı, lokal cache üzerinden)
             let nearestPort = await this.findNearestPortUsingH3(coordinate, maxRadiusKm);
 
-            // Eğer bulunamadıysa cache'i Port Service verisi ile hydrate et ve tekrar dene
+            // Eğer bulunamadıysa, radius verilmemişse (sonsuz) kademeli genişletilmiş bir fallback uygula
             if (!nearestPort) {
-                await this.hydrateCacheAround(coordinate, Math.min(maxRadiusKm, 200));
-                nearestPort = await this.findNearestPortUsingH3(coordinate, maxRadiusKm);
+                const fallbackRadii = Number.isFinite(maxRadiusKm)
+                    ? [Math.min(maxRadiusKm, 200)]
+                    : [200, 500, 1000, 2000, 5000];
+
+                for (const radius of fallbackRadii) {
+                    const fromPortService = await this.findNearestViaPortService(coordinate, radius);
+                    if (fromPortService) {
+                        nearestPort = fromPortService;
+                        break;
+                    }
+                }
             }
 
             if (nearestPort) {
@@ -115,13 +124,13 @@ export class LocationDomainService {
         return nearestPort;
     }
 
-    private async hydrateCacheAround(coordinate: Coordinate, radiusKm: number): Promise<void> {
+    private async hydrateCacheAround(coordinate: Coordinate, radiusKm: number): Promise<any[]> {
         const nearby = await this.portServiceClient.findNearbyPorts({
             coordinate: { latitude: coordinate.latitude, longitude: coordinate.longitude },
             radiusKm
         });
 
-        if (!nearby || nearby.length === 0) return;
+        if (!nearby || nearby.length === 0) return [];
 
         for (const p of nearby) {
             const portCoord = new Coordinate(p.coordinate.latitude, p.coordinate.longitude);
@@ -136,6 +145,42 @@ export class LocationDomainService {
                 isActive: true
             });
         }
+
+        return nearby;
+    }
+
+    private async findNearestViaPortService(coordinate: Coordinate, radiusKm: number): Promise<NearestPortResult | null> {
+        // Port Service'den doğrudan yakın limanları al ve en yakını seç
+        const nearby = await this.hydrateCacheAround(coordinate, radiusKm);
+        if (!nearby || nearby.length === 0) return null;
+
+        const h3Index = this.locationCalculationService.coordinateToH3(coordinate);
+        let best: NearestPortResult | null = null;
+        let bestScore = Number.POSITIVE_INFINITY;
+
+        for (const p of nearby) {
+            const portCoord = new Coordinate(p.coordinate.latitude, p.coordinate.longitude);
+            const candidateH3 = this.locationCalculationService.coordinateToH3(portCoord);
+            const h3Distance = this.locationCalculationService.calculateH3Distance(h3Index, candidateH3);
+            const distance = this.locationCalculationService.calculateDistance(coordinate, portCoord);
+            const score = h3Distance * 1000 + distance;
+
+            if (score < bestScore) {
+                best = {
+                    portId: p.id,
+                    name: p.name,
+                    code: p.code,
+                    country: p.country,
+                    coordinate: portCoord,
+                    distanceKm: distance,
+                    h3Distance,
+                    h3Index: candidateH3
+                };
+                bestScore = score;
+            }
+        }
+
+        return best;
     }
 
     async findPortsInRadius(coordinate: Coordinate, radiusKm: number): Promise<NearestPortResult[]> {
