@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-store';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -46,6 +48,18 @@ import { PortController } from './application/controllers/port.controller';
                 retryDelay: 3000,
             }),
             inject: [ConfigService],
+        }),
+        CacheModule.registerAsync({
+            isGlobal: true,
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: async (configService: ConfigService) => ({
+                store: await redisStore({
+                    url: configService.get<string>('REDIS_URL'),
+                }),
+                ttl: 600, // 10 minutes default TTL (port service için hafif cache)
+                max: 1000,
+            }),
         }),
         TypeOrmModule.forFeature([PortEntity, OutboxEventEntity])
     ],
