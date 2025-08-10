@@ -14,7 +14,7 @@ import {
     ValidationPipe,
     UsePipes
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 import {
     CreatePortDto,
     UpdatePortDto,
@@ -40,6 +40,26 @@ export class PortController {
     @ApiResponse({ status: 201, description: 'Port created successfully', type: PortResponseDto })
     @ApiResponse({ status: 400, description: 'Invalid input data' })
     @ApiResponse({ status: 409, description: 'Port with same code already exists' })
+    @ApiBody({
+        description: 'Port payload',
+        schema: {
+            type: 'object',
+            properties: {
+                name: { type: 'string', example: 'Port of Alexandria' },
+                code: { type: 'string', example: 'ALX' },
+                country: { type: 'string', example: 'EG' },
+                coordinate: {
+                    type: 'object',
+                    properties: {
+                        latitude: { type: 'number', example: 31.2001 },
+                        longitude: { type: 'number', example: 29.9187 }
+                    },
+                    required: ['latitude', 'longitude']
+                }
+            },
+            required: ['name', 'code', 'country', 'coordinate']
+        }
+    })
     async createPort(@Body() createPortDto: CreatePortDto): Promise<PortResponseDto> {
         try {
             this.logger.debug(`Creating port: ${createPortDto.name}`);
@@ -115,6 +135,22 @@ export class PortController {
     @ApiResponse({ status: 200, description: 'Port updated successfully', type: PortResponseDto })
     @ApiResponse({ status: 404, description: 'Port not found' })
     @ApiResponse({ status: 400, description: 'Invalid input data' })
+    @ApiBody({
+        description: 'Fields to update',
+        schema: {
+            type: 'object',
+            properties: {
+                name: { type: 'string', example: 'New Name' },
+                coordinate: {
+                    type: 'object',
+                    properties: {
+                        latitude: { type: 'number', example: 31.26 },
+                        longitude: { type: 'number', example: 32.30 }
+                    }
+                }
+            }
+        }
+    })
     async updatePort(
         @Param('id') id: string,
         @Body() updatePortDto: UpdatePortDto
@@ -168,6 +204,24 @@ export class PortController {
     @ApiOperation({ summary: 'Find nearby ports' })
     @ApiResponse({ status: 200, description: 'Nearby ports found', type: [PortResponseDto] })
     @ApiResponse({ status: 400, description: 'Invalid coordinates' })
+    @ApiBody({
+        description: 'Coordinate and optional radius',
+        schema: {
+            type: 'object',
+            properties: {
+                coordinate: {
+                    type: 'object',
+                    properties: {
+                        latitude: { type: 'number', example: 41.0255 },
+                        longitude: { type: 'number', example: 28.9738 }
+                    },
+                    required: ['latitude', 'longitude']
+                },
+                radiusKm: { type: 'number', example: 100 }
+            },
+            required: ['coordinate']
+        }
+    })
     async findNearbyPorts(@Body() findNearestDto: FindNearestPortDto): Promise<PortResponseDto[]> {
         try {
             const coordinate = new Coordinate(

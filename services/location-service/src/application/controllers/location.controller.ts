@@ -10,7 +10,7 @@ import {
     ValidationPipe,
     UsePipes
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { IsNumber, IsOptional, ValidateNested, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
@@ -74,6 +74,24 @@ export class LocationController {
     @ApiResponse({ status: 200, description: 'Nearest port found', type: NearestPortResponseDto })
     @ApiResponse({ status: 404, description: 'No port found within radius' })
     @ApiResponse({ status: 400, description: 'Invalid coordinates' })
+    @ApiBody({
+        description: 'Coordinates (radius optional; omitted => progressive widen)',
+        schema: {
+            type: 'object',
+            properties: {
+                coordinate: {
+                    type: 'object',
+                    properties: {
+                        latitude: { type: 'number', example: 41.0255 },
+                        longitude: { type: 'number', example: 28.9738 }
+                    },
+                    required: ['latitude', 'longitude']
+                },
+                radiusKm: { type: 'number', example: 100, nullable: true }
+            },
+            required: ['coordinate']
+        }
+    })
     async findNearestPort(@Body() findNearestDto: any): Promise<NearestPortResponseDto> {
         try {
             this.logger.debug(`Finding nearest port for coordinates: ${JSON.stringify(findNearestDto.coordinate)}`);
@@ -121,6 +139,24 @@ export class LocationController {
     @ApiOperation({ summary: 'Find all ports within specified radius' })
     @ApiResponse({ status: 200, description: 'Ports found within radius', type: [NearestPortResponseDto] })
     @ApiResponse({ status: 400, description: 'Invalid coordinates or radius' })
+    @ApiBody({
+        description: 'Coordinates and radius',
+        schema: {
+            type: 'object',
+            properties: {
+                coordinate: {
+                    type: 'object',
+                    properties: {
+                        latitude: { type: 'number', example: 41.0255 },
+                        longitude: { type: 'number', example: 28.9738 }
+                    },
+                    required: ['latitude', 'longitude']
+                },
+                radiusKm: { type: 'number', example: 50 }
+            },
+            required: ['coordinate', 'radiusKm']
+        }
+    })
     async findPortsInRadius(@Body() portsInRadiusDto: any): Promise<NearestPortResponseDto[]> {
         try {
             this.logger.debug(`Finding ports in radius: ${portsInRadiusDto.radiusKm}km`);
@@ -165,6 +201,17 @@ export class LocationController {
     @ApiOperation({ summary: 'Validate coordinate format and range' })
     @ApiResponse({ status: 200, description: 'Coordinate validation result' })
     @ApiResponse({ status: 400, description: 'Invalid coordinate format' })
+    @ApiBody({
+        description: 'Coordinate to validate',
+        schema: {
+            type: 'object',
+            properties: {
+                latitude: { type: 'number', example: 41.0255 },
+                longitude: { type: 'number', example: 28.9738 }
+            },
+            required: ['latitude', 'longitude']
+        }
+    })
     async validateCoordinate(@Body() coordinateDto: LocalCoordinateDto): Promise<{ isValid: boolean; message?: string }> {
         try {
             const coordinate = new Coordinate(coordinateDto.latitude, coordinateDto.longitude);
@@ -187,6 +234,17 @@ export class LocationController {
     @ApiOperation({ summary: 'Get H3 location information for coordinates' })
     @ApiResponse({ status: 200, description: 'Location information', type: LocationInfoDto })
     @ApiResponse({ status: 400, description: 'Invalid coordinates' })
+    @ApiBody({
+        description: 'Coordinate',
+        schema: {
+            type: 'object',
+            properties: {
+                latitude: { type: 'number', example: 41.0255 },
+                longitude: { type: 'number', example: 28.9738 }
+            },
+            required: ['latitude', 'longitude']
+        }
+    })
     async getLocationInfo(@Body() coordinateDto: LocalCoordinateDto): Promise<LocationInfoDto> {
         try {
             const coordinate = new Coordinate(coordinateDto.latitude, coordinateDto.longitude);

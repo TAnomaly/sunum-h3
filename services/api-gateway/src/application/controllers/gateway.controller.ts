@@ -13,7 +13,7 @@ import {
     UseGuards,
     UseInterceptors
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import {
     CreatePortDto,
@@ -43,6 +43,21 @@ export class GatewayController {
     @ApiResponse({ status: 201, description: 'Port created successfully', type: PortResponseDto })
     @ApiResponse({ status: 400, description: 'Invalid input data' })
     @ApiResponse({ status: 409, description: 'Port with same code already exists' })
+    @ApiBody({
+        description: 'Port payload',
+        type: CreatePortDto,
+        examples: {
+            sample: {
+                summary: 'Example',
+                value: {
+                    name: 'Port of Alexandria',
+                    code: 'ALX',
+                    country: 'EG',
+                    coordinate: { latitude: 31.2001, longitude: 29.9187 }
+                }
+            }
+        }
+    })
     async createPort(@Body() createPortDto: CreatePortDto): Promise<PortResponseDto> {
         this.logger.debug(`API Gateway: Creating port ${createPortDto.name}`);
         return this.portClient.createPort(createPortDto);
@@ -76,6 +91,14 @@ export class GatewayController {
     @ApiResponse({ status: 200, description: 'Port updated successfully', type: PortResponseDto })
     @ApiResponse({ status: 404, description: 'Port not found' })
     @ApiResponse({ status: 400, description: 'Invalid input data' })
+    @ApiBody({
+        description: 'Fields to update',
+        type: UpdatePortDto,
+        examples: {
+            rename: { summary: 'Rename', value: { name: 'New Name' } },
+            move: { summary: 'Move', value: { coordinate: { latitude: 31.26, longitude: 32.3 } } }
+        }
+    })
     async updatePort(
         @Param('id') id: string,
         @Body() updatePortDto: UpdatePortDto
@@ -101,6 +124,20 @@ export class GatewayController {
     @ApiResponse({ status: 404, description: 'No port found within radius' })
     @ApiResponse({ status: 400, description: 'Invalid coordinates' })
 
+    @ApiBody({
+        description: 'Coordinates (radius is optional; if omitted, system widens progressively)',
+        type: FindNearestPortDto,
+        examples: {
+            noRadius: {
+                summary: 'Without radius',
+                value: { coordinate: { latitude: 41.0255, longitude: 28.9738 } }
+            },
+            withRadius: {
+                summary: 'With radius',
+                value: { coordinate: { latitude: 41.0255, longitude: 28.9738 }, radiusKm: 100 }
+            }
+        }
+    })
     async findNearestPort(@Body() findNearestDto: FindNearestPortDto): Promise<NearestPortResponseDto> {
         this.logger.debug(`API Gateway: Finding nearest port for coordinates`);
         return this.locationClient.findNearestPort(findNearestDto);
@@ -111,6 +148,7 @@ export class GatewayController {
     @ApiResponse({ status: 200, description: 'Ports found within radius', type: [NearestPortResponseDto] })
     @ApiResponse({ status: 400, description: 'Invalid coordinates or radius' })
 
+    @ApiBody({ description: 'Coordinates and radius', type: PortsInRadiusDto })
     async findPortsInRadius(@Body() portsInRadiusDto: PortsInRadiusDto): Promise<NearestPortResponseDto[]> {
         this.logger.debug(`API Gateway: Finding ports in radius`);
         return this.locationClient.findPortsInRadius(portsInRadiusDto);
@@ -121,6 +159,7 @@ export class GatewayController {
     @ApiResponse({ status: 200, description: 'Nearby ports found', type: [PortResponseDto] })
     @ApiResponse({ status: 400, description: 'Invalid coordinates' })
 
+    @ApiBody({ description: 'Coordinates (and optional radiusKm)', type: FindNearestPortDto })
     async findNearbyPorts(@Body() findNearestDto: FindNearestPortDto): Promise<PortResponseDto[]> {
         this.logger.debug(`API Gateway: Finding nearby ports via port service`);
         return this.portClient.findNearbyPorts(findNearestDto);
@@ -131,6 +170,7 @@ export class GatewayController {
     @ApiOperation({ summary: 'Validate coordinate format and range' })
     @ApiResponse({ status: 200, description: 'Coordinate validation result' })
     @ApiResponse({ status: 400, description: 'Invalid coordinate format' })
+    @ApiBody({ description: 'Coordinate to validate', type: CoordinateDto })
     async validateCoordinate(@Body() coordinateDto: CoordinateDto): Promise<{ isValid: boolean; message?: string }> {
         this.logger.debug(`API Gateway: Validating coordinate`);
         return this.locationClient.validateCoordinate(coordinateDto);
@@ -141,6 +181,7 @@ export class GatewayController {
     @ApiResponse({ status: 200, description: 'Location information' })
     @ApiResponse({ status: 400, description: 'Invalid coordinates' })
 
+    @ApiBody({ description: 'Coordinate', type: CoordinateDto })
     async getLocationInfo(@Body() coordinateDto: CoordinateDto): Promise<LocationInfoDto> {
         this.logger.debug(`API Gateway: Getting location info`);
         return this.locationClient.getLocationInfo(coordinateDto);
