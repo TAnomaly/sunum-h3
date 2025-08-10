@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
+import type { CacheStore } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-store';
 import { HttpModule } from '@nestjs/axios';
 
@@ -28,14 +29,16 @@ import { LocationController } from './application/controllers/location.controlle
             isGlobal: true,
             imports: [ConfigModule],
             inject: [ConfigService],
-            useFactory: async (configService: ConfigService) => ({
-                // cache-manager-redis-store v3 için async store kurulum
-                store: await redisStore({
+            useFactory: async (configService: ConfigService) => {
+                const store = await redisStore({
                     url: configService.get<string>('REDIS_URL'),
-                }),
-                ttl: 3600, // 1 hour default TTL
-                max: 1000, // Maximum number of items in cache
-            }),
+                });
+                return {
+                    store: store as unknown as CacheStore,
+                    ttl: 3600, // 1 hour default TTL
+                    max: 1000, // Maximum number of items in cache
+                };
+            },
         }),
     ],
     controllers: [LocationController],

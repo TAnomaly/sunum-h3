@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
+import type { CacheStore } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-store';
 
 // Clients
@@ -53,13 +54,16 @@ import { GatewayController } from './application/controllers/gateway.controller'
             isGlobal: true,
             imports: [ConfigModule],
             inject: [ConfigService],
-            useFactory: async (configService: ConfigService) => ({
-                store: await redisStore({
+            useFactory: async (configService: ConfigService) => {
+                const store = await redisStore({
                     url: configService.get<string>('REDIS_URL'),
-                }),
-                ttl: 1800, // 30 minutes default TTL
-                max: 1000, // Maximum number of items in cache
-            }),
+                });
+                return {
+                    store: store as unknown as CacheStore,
+                    ttl: 1800, // 30 minutes default TTL
+                    max: 1000, // Maximum number of items in cache
+                };
+            },
         }),
     ],
     controllers: [GatewayController],
