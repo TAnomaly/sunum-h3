@@ -77,3 +77,24 @@ export class NearestPortRequestedEvent extends DomainEvent {
         };
     }
 }
+
+export class PortDeletedEvent extends DomainEvent {
+    constructor(
+        aggregateId: string,
+        public readonly code: string,
+        public readonly coordinate?: Coordinate,
+        public readonly h3Index?: string,
+        version: number = 1
+    ) {
+        super(aggregateId, 'PortDeleted', version);
+    }
+
+    getPayload(): any {
+        return {
+            id: this.aggregateId,
+            code: this.code,
+            coordinate: this.coordinate ? this.coordinate.toObject() : undefined,
+            h3Index: this.h3Index
+        };
+    }
+}

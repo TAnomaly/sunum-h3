@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Port, Coordinate, PortCreatedEvent, PortUpdatedEvent, PortH3IndexUpdatedEvent, DomainError } from '@port-finder/shared';
+import { Port, Coordinate, PortCreatedEvent, PortUpdatedEvent, PortH3IndexUpdatedEvent, DomainError, PortDeletedEvent } from '@port-finder/shared';
 import { PortRepository } from '../../infrastructure/persistence/repositories/port.repository';
 import { OutboxService } from './outbox.service';
 import { H3Service } from './h3.service';
@@ -124,6 +124,15 @@ export class PortDomainService {
 
         port.deactivate();
         await this.portRepository.save(port);
+
+        // Publish deletion event for cache invalidation across services
+        const deleteEvent = new PortDeletedEvent(
+            port.id,
+            port.code,
+            port.coordinate,
+            port.h3Index
+        );
+        await this.outboxService.saveEvent(deleteEvent);
     }
 
     async findNearbyPorts(coordinate: Coordinate, radiusKm: number): Promise<Port[]> {

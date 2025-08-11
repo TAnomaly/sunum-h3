@@ -93,6 +93,8 @@ export class EventPublisher implements IEventPublisher {
                 return 'port.updated';
             case 'PortH3IndexUpdated':
                 return 'port.h3.updated';
+            case 'PortDeleted':
+                return 'port.deleted';
             case 'NearestPortRequested':
                 return 'location.nearest.requested';
             default:

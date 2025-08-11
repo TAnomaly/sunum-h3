@@ -25,6 +25,21 @@ export class PortCacheService {
         @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
     ) { }
 
+    private normalizeCoordinate(raw: any): Coordinate | null {
+        if (!raw) return null;
+        if (raw instanceof Coordinate) return raw;
+        const lat = (raw as any).latitude ?? (raw as any)._latitude;
+        const lng = (raw as any).longitude ?? (raw as any)._longitude;
+        if (typeof lat === 'number' && typeof lng === 'number') {
+            try {
+                return new Coordinate(lat, lng);
+            } catch {
+                return null;
+            }
+        }
+        return null;
+    }
+
     async cachePort(port: CachedPort): Promise<void> {
         try {
             const cacheKey = this.getPortCacheKey(port.id);
@@ -50,6 +65,10 @@ export class PortCacheService {
             const cachedPort = await this.cacheManager.get<CachedPort>(cacheKey);
 
             if (cachedPort) {
+                const coord = this.normalizeCoordinate((cachedPort as any).coordinate);
+                if (coord) {
+                    (cachedPort as any).coordinate = coord;
+                }
                 this.logger.debug(`Port found in cache: ${portId}`);
                 return cachedPort;
             }
@@ -68,7 +87,15 @@ export class PortCacheService {
 
             if (cachedPorts) {
                 this.logger.debug(`Found ${cachedPorts.length} ports in H3 index: ${h3Index}`);
-                return cachedPorts.filter(port => port.isActive);
+                return cachedPorts
+                    .filter(port => port.isActive)
+                    .map(port => {
+                        const coord = this.normalizeCoordinate((port as any).coordinate);
+                        if (coord) {
+                            (port as any).coordinate = coord;
+                        }
+                        return port;
+                    });
             }
 
             return [];
@@ -143,6 +170,18 @@ export class PortCacheService {
         }
     }
 
+    async removePortFromH3Index(h3Index: string, portId: string): Promise<void> {
+        try {
+            const cacheKey = this.getH3IndexCacheKey(h3Index);
+            const cachedPorts = (await this.cacheManager.get<CachedPort[]>(cacheKey)) || [];
+            const updated = cachedPorts.filter(p => p.id !== portId);
+            await this.cacheManager.set(cacheKey, updated, this.H3_INDEX_CACHE_TTL);
+            this.logger.debug(`Removed port ${portId} from H3 index cache: ${h3Index}`);
+        } catch (error) {
+            this.logger.error(`Error removing port ${portId} from H3 index ${h3Index}:`, error);
+        }
+    }
+
     async invalidateNearestPortCache(coordinate: Coordinate): Promise<void> {
         try {
             // Farklı radius değerleri için cache'leri temizle
@@ -156,6 +195,16 @@ export class PortCacheService {
             this.logger.debug(`Nearest port cache invalidated for coordinate: ${coordinate.toString()}`);
         } catch (error) {
             this.logger.error(`Error invalidating nearest port cache:`, error);
+        }
+    }
+
+    async invalidateNearestPortCacheFor(coordinate: Coordinate, radiusKm: number): Promise<void> {
+        try {
+            const cacheKey = this.getNearestPortCacheKey(coordinate, radiusKm);
+            await this.cacheManager.del(cacheKey);
+            this.logger.debug(`Nearest port cache invalidated for coordinate ${coordinate.toString()} and radius ${radiusKm}`);
+        } catch (error) {
+            this.logger.error(`Error invalidating nearest port cache for radius ${radiusKm}:`, error);
         }
     }
 

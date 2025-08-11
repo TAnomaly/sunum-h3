@@ -15,6 +15,8 @@ RUN npm install
 COPY services/location-service .
 RUN npm run build
 
+ENV LOCATION_H3_ONLY=true
+
 EXPOSE 3002
 
 CMD ["node", "dist/services/location-service/src/main.js"]

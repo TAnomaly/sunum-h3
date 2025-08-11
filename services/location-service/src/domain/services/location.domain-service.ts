@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Coordinate, NearestPortRequestedEvent } from '@port-finder/shared';
 import { LocationCalculationService } from './location-calculation.service';
 import { PortCacheService } from './port-cache.service';
@@ -24,7 +25,8 @@ export class LocationDomainService {
         private readonly locationCalculationService: LocationCalculationService,
         private readonly portCacheService: PortCacheService,
         private readonly eventPublisher: EventPublisher,
-        private readonly portServiceClient: PortServiceClient
+        private readonly portServiceClient: PortServiceClient,
+        private readonly configService: ConfigService
     ) { }
 
     async findNearestPort(coordinate: Coordinate, maxRadiusKm: number = Number.POSITIVE_INFINITY): Promise<NearestPortResult | null> {
@@ -37,35 +39,60 @@ export class LocationDomainService {
             const event = new NearestPortRequestedEvent(requestId, coordinate, requestId);
             await this.eventPublisher.publish(event.getPayload());
 
-            // Önce cache'den kontrol et
-            const cachedResult = await this.portCacheService.getNearestPortFromCache(coordinate, maxRadiusKm);
-            if (cachedResult) {
-                this.logger.debug(`Found nearest port from cache: ${cachedResult.code}`);
-                return cachedResult;
+            const h3OnlyEnv = this.configService.get<string>('LOCATION_H3_ONLY');
+            const isH3Only = h3OnlyEnv === undefined || h3OnlyEnv.toLowerCase() === 'true';
+
+            // Önce cache'den kontrol et (H3-only modunda eski fallback sonuçlarını kullanmamak için atla)
+            if (!isH3Only) {
+                const cachedResult = await this.portCacheService.getNearestPortFromCache(coordinate, maxRadiusKm);
+                if (cachedResult) {
+                    this.logger.debug(`Found nearest port from cache: ${cachedResult.code}`);
+                    return cachedResult;
+                }
             }
 
             // Önce H3 ile bulmaya çalış (ring tabanlı, lokal cache üzerinden)
             let nearestPort = await this.findNearestPortUsingH3(coordinate, maxRadiusKm);
 
-            // Eğer bulunamadıysa, radius verilmemişse (sonsuz) kademeli genişletilmiş bir fallback uygula
+            // H3-only modu: fallback devre dışı
             if (!nearestPort) {
-                const fallbackRadii = Number.isFinite(maxRadiusKm)
-                    ? [Math.min(maxRadiusKm, 200)]
-                    : [200, 500, 1000, 2000, 5000];
+                if (!isH3Only) {
+                    const fallbackRadii = Number.isFinite(maxRadiusKm)
+                        ? [Math.min(maxRadiusKm, 200)]
+                        : [200, 500, 1000, 2000, 5000];
 
-                for (const radius of fallbackRadii) {
-                    const fromPortService = await this.findNearestViaPortService(coordinate, radius);
-                    if (fromPortService) {
-                        nearestPort = fromPortService;
-                        break;
+                    for (const radius of fallbackRadii) {
+                        const fromPortService = await this.findNearestViaPortService(coordinate, radius);
+                        if (fromPortService) {
+                            nearestPort = fromPortService;
+                            break;
+                        }
                     }
                 }
             }
 
             if (nearestPort) {
-                // Sonucu cache'le
-                await this.portCacheService.cacheNearestPortResult(coordinate, nearestPort, maxRadiusKm);
-                this.logger.debug(`Found nearest port: ${nearestPort.code} at distance ${nearestPort.distanceKm}km`);
+                // Staleness guard: verify the port still exists in DB (in case of manual DB deletes)
+                try {
+                    const exists = await this.portServiceClient.getPortById(nearestPort.portId);
+                    if (!exists) {
+                        this.logger.warn(`Nearest candidate ${nearestPort.portId} missing in DB; skipping and invalidating caches`);
+                        await this.portCacheService.invalidatePortCache(nearestPort.portId);
+                        if (nearestPort.h3Index) {
+                            await this.portCacheService.invalidateH3IndexCache(nearestPort.h3Index);
+                        }
+                        // Force a re-run by clearing result
+                        nearestPort = null;
+                    }
+                } catch (e) {
+                    this.logger.warn(`DB validation for nearest candidate failed: ${(e as any)?.message}`);
+                }
+
+                if (nearestPort) {
+                    // Sonucu cache'le
+                    await this.portCacheService.cacheNearestPortResult(coordinate, nearestPort, maxRadiusKm);
+                    this.logger.debug(`Found nearest port: ${nearestPort.code} at distance ${nearestPort.distanceKm}km`);
+                }
             } else {
                 this.logger.debug(`No port found within ${maxRadiusKm}km radius`);
             }
@@ -102,9 +129,8 @@ export class LocationDomainService {
 
         for (const port of ports) {
             const h3Distance = this.locationCalculationService.calculateH3Distance(h3Index, port.h3Index);
-            // H3 grid mesafesi birincil kriter; eşitlik bozulur ise Haversine ile tie-break
             const distance = this.locationCalculationService.calculateDistance(coordinate, port.coordinate);
-            const score = h3Distance * 1000 + distance; // h3Distance >> distance olacak şekilde ağırlandırma
+            const score = h3Distance * 1000 + distance;
 
             if (score < minDistance && (Number.isFinite(maxRadiusKm) ? distance <= maxRadiusKm : true)) {
                 nearestPort = {

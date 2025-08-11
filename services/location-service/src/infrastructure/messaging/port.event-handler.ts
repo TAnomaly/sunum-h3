@@ -70,6 +70,9 @@ export class PortEventHandler {
             // Port H3 Index Updated Event Handler
             await this.setupPortH3UpdatedHandler();
 
+            // Port Deleted Event Handler
+            await this.setupPortDeletedHandler();
+
             this.logger.log('Event handlers setup completed');
         } catch (error) {
             this.logger.error('Error setting up event handlers:', error);
@@ -140,6 +143,28 @@ export class PortEventHandler {
         });
 
         this.logger.debug('Port H3 updated event handler setup');
+    }
+
+    private async setupPortDeletedHandler(): Promise<void> {
+        const queueName = 'location-service.port.deleted';
+
+        await this.channel.assertQueue(queueName, { durable: true });
+        await this.channel.bindQueue(queueName, this.exchange, 'port.deleted');
+
+        await this.channel.consume(queueName, async (message) => {
+            if (message) {
+                try {
+                    const event = JSON.parse(message.content.toString());
+                    await this.handlePortDeleted(event);
+                    this.channel.ack(message);
+                } catch (error) {
+                    this.logger.error('Error handling port deleted event:', error);
+                    this.channel.nack(message, false, false);
+                }
+            }
+        });
+
+        this.logger.debug('Port deleted event handler setup');
     }
 
     private async handlePortCreated(event: any): Promise<void> {
@@ -235,6 +260,31 @@ export class PortEventHandler {
             this.logger.debug(`Port H3 index updated in cache: ${event.payload.id}`);
         } catch (error) {
             this.logger.error(`Error handling port H3 updated event:`, error);
+            throw error;
+        }
+    }
+
+    private async handlePortDeleted(event: any): Promise<void> {
+        try {
+            this.logger.debug(`Handling port deleted event: ${event.payload.id}`);
+
+            // Remove single-port cache entry
+            await this.portCacheService.invalidatePortCache(event.payload.id);
+
+            // Remove from H3 index cached lists if we have index
+            if (event.payload.h3Index) {
+                await this.portCacheService.invalidateH3IndexCache(event.payload.h3Index);
+            }
+
+            // Invalidate nearest-port caches around previous coordinate if provided
+            if (event.payload.coordinate) {
+                const coord = new Coordinate(event.payload.coordinate.latitude, event.payload.coordinate.longitude);
+                await this.portCacheService.invalidateNearestPortCache(coord);
+            }
+
+            this.logger.debug(`Port deleted invalidations applied: ${event.payload.id}`);
+        } catch (error) {
+            this.logger.error(`Error handling port deleted event:`, error);
             throw error;
         }
     }
