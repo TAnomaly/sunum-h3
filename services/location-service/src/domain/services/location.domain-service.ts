@@ -149,9 +149,14 @@ export class LocationDomainService {
         // H3 ring ile komşu halkaları büyüterek ara
         let ports: any[] = [];
         let ring = 0;
-        const maxRing = Number.isFinite(maxRadiusKm)
+        // CRITICAL: Her zaman maksimum 10 ring ile sınırla
+        const calculatedRings = Number.isFinite(maxRadiusKm)
             ? this.locationCalculationService.calculateRequiredH3Rings(maxRadiusKm)
-            : 10; // güvenli üst sınır(Ring sayısı)
+            : 10;
+        const maxRing = Math.min(calculatedRings, 10); // Asla 10 ring'den fazla gitme
+
+        this.logger.debug(`H3 search: calculated rings=${calculatedRings}, maxRing=${maxRing}, maxRadiusKm=${maxRadiusKm}`);
+
         while (ring <= maxRing && ports.length === 0) {
             const cells = this.locationCalculationService.getH3Neighbors(h3Index, ring);
             for (const cell of cells) {
@@ -170,7 +175,16 @@ export class LocationDomainService {
             const distance = this.locationCalculationService.calculateDistance(coordinate, port.coordinate);
             const score = h3Distance * 1000 + distance;
 
-            if (score < minDistance && (Number.isFinite(maxRadiusKm) ? distance <= maxRadiusKm : true)) {
+            // CRITICAL: H3 mesafesi 10 ring'i geçemez VE km mesafesi limiti
+            const isWithinH3RingLimit = h3Distance <= 10;
+            const isWithinKmLimit = Number.isFinite(maxRadiusKm) ? distance <= maxRadiusKm : true;
+
+            if (!isWithinH3RingLimit) {
+                this.logger.debug(`Port ${port.code} rejected: h3Distance=${h3Distance} > 10 rings`);
+                continue;
+            }
+
+            if (score < minDistance && isWithinH3RingLimit && isWithinKmLimit) {
                 nearestPort = {
                     portId: port.id,
                     name: port.name,
@@ -228,6 +242,12 @@ export class LocationDomainService {
             const h3Distance = this.locationCalculationService.calculateH3Distance(h3Index, candidateH3);
             const distance = this.locationCalculationService.calculateDistance(coordinate, portCoord);
             const score = h3Distance * 1000 + distance;
+
+            // CRITICAL: Enforce 10 ring limit in fallback too
+            if (h3Distance > 10) {
+                this.logger.debug(`Port ${p.code} rejected in fallback: h3Distance=${h3Distance} > 10 rings`);
+                continue;
+            }
 
             if (score < bestScore) {
                 best = {

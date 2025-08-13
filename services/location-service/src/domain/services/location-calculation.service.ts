@@ -17,7 +17,13 @@ export class LocationCalculationService {
     }
 
     calculateH3Distance(h3Index1: string, h3Index2: string): number {
-        return gridDistance(h3Index1, h3Index2);
+        try {
+            return gridDistance(h3Index1, h3Index2);
+        } catch (error) {
+            // H3 gridDistance fails for very large distances (cross-ocean, etc.)
+            // Return a very large number to indicate extreme distance
+            return 999;
+        }
     }
 
     getH3Neighbors(h3Index: string, radius: number = 1): string[] {

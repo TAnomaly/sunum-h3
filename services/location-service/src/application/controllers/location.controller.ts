@@ -330,13 +330,13 @@ export class LocationController {
         try {
             this.logger.log('Manual cache warmup requested');
             const result = await this.cacheWarmingService.manualWarmup();
-            
+
             if (result.success) {
                 this.logger.log('Manual cache warmup completed successfully');
             } else {
                 this.logger.error('Manual cache warmup failed');
             }
-            
+
             return result;
         } catch (error) {
             this.logger.error(`Manual cache warmup error: ${error.message}`);
