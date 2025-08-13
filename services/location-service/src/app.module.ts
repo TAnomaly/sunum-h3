@@ -9,6 +9,7 @@ import { HttpModule } from '@nestjs/axios';
 import { LocationDomainService } from './domain/services/location.domain-service';
 import { LocationCalculationService } from './domain/services/location-calculation.service';
 import { PortCacheService } from './domain/services/port-cache.service';
+import { CacheWarmingService } from './domain/services/cache-warming.service';
 
 // Infrastructure
 import { EventPublisher } from './infrastructure/messaging/event.publisher';
@@ -47,6 +48,7 @@ import { LocationController } from './application/controllers/location.controlle
         LocationDomainService,
         LocationCalculationService,
         PortCacheService,
+        CacheWarmingService,
 
         // Infrastructure
         EventPublisher,

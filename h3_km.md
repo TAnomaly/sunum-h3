@@ -1,0 +1,1 @@
+25-28 km arasi daha ileri portu vermez

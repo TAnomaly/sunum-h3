@@ -1,0 +1,17 @@
+{
+  "name": "scripts",
+  "version": "1.0.0",
+  "main": "populate-h3-cache.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "h3-js": "^4.2.1",
+    "ioredis": "^5.7.0",
+    "pg": "^8.16.3"
+  }
+}

@@ -21,6 +21,7 @@ import {
     DomainError
 } from '@port-finder/shared';
 import { LocationDomainService, NearestPortResult } from '../../domain/services/location.domain-service';
+import { CacheWarmingService } from '../../domain/services/cache-warming.service';
 
 export class LocationInfoDto {
     h3Index: string;
@@ -69,7 +70,10 @@ export class PortsInRadiusDto {
 export class LocationController {
     private readonly logger = new Logger(LocationController.name);
 
-    constructor(private readonly locationDomainService: LocationDomainService) { }
+    constructor(
+        private readonly locationDomainService: LocationDomainService,
+        private readonly cacheWarmingService: CacheWarmingService
+    ) { }
 
     @Post('nearest-port')
     @ApiOperation({ summary: 'Find nearest port to given coordinates' })
@@ -315,6 +319,31 @@ export class LocationController {
         } catch (error) {
             this.logger.error(`Test endpoint error: ${error.message}`);
             return { error: error.message };
+        }
+    }
+
+    @Post('admin/warmup-cache')
+    @ApiOperation({ summary: 'Manually trigger cache warmup (Admin only)' })
+    @ApiResponse({ status: 200, description: 'Cache warmup completed' })
+    @ApiResponse({ status: 500, description: 'Cache warmup failed' })
+    async warmupCache(): Promise<{ success: boolean; message: string; stats?: any }> {
+        try {
+            this.logger.log('Manual cache warmup requested');
+            const result = await this.cacheWarmingService.manualWarmup();
+            
+            if (result.success) {
+                this.logger.log('Manual cache warmup completed successfully');
+            } else {
+                this.logger.error('Manual cache warmup failed');
+            }
+            
+            return result;
+        } catch (error) {
+            this.logger.error(`Manual cache warmup error: ${error.message}`);
+            return {
+                success: false,
+                message: `Cache warmup failed: ${error.message}`
+            };
         }
     }
 
