@@ -113,7 +113,7 @@ export class LocationDomainService {
         let ring = 0;
         const maxRing = Number.isFinite(maxRadiusKm)
             ? this.locationCalculationService.calculateRequiredH3Rings(maxRadiusKm)
-            : 10; // güvenli üst sınır
+            : 10; // güvenli üst sınır(Ring sayısı)
         while (ring <= maxRing && ports.length === 0) {
             const cells = this.locationCalculationService.getH3Neighbors(h3Index, ring);
             for (const cell of cells) {
