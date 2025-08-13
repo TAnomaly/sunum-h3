@@ -46,8 +46,28 @@ export class LocationDomainService {
             if (!isH3Only) {
                 const cachedResult = await this.portCacheService.getNearestPortFromCache(coordinate, maxRadiusKm);
                 if (cachedResult) {
-                    this.logger.debug(`Found nearest port from cache: ${cachedResult.code}`);
-                    return cachedResult;
+                    this.logger.debug(`Found nearest port from cache: ${cachedResult.code} - validating...`);
+
+                    // CRITICAL: Cached result must also pass staleness guard
+                    try {
+                        const exists = await this.portServiceClient.getPortById(cachedResult.portId);
+                        if (exists) {
+                            this.logger.debug(`✅ Cached port ${cachedResult.portId} validated in DB`);
+                            return cachedResult;
+                        } else {
+                            this.logger.warn(`⚠️  STALE CACHE: Cached port ${cachedResult.portId} (${cachedResult.code}) missing in DB - invalidating`);
+                            await this.portCacheService.invalidatePortCache(cachedResult.portId);
+                            await this.portCacheService.invalidateNearestPortCache(coordinate);
+                            if (cachedResult.h3Index) {
+                                await this.portCacheService.invalidateH3IndexCache(cachedResult.h3Index);
+                            }
+                            // Continue with fresh search below
+                        }
+                    } catch (e) {
+                        this.logger.warn(`Cached port validation failed: ${(e as any)?.message} - invalidating cache`);
+                        await this.portCacheService.invalidateNearestPortCache(coordinate);
+                        // Continue with fresh search below
+                    }
                 }
             }
 
@@ -57,35 +77,53 @@ export class LocationDomainService {
             // H3-only modu: fallback devre dışı
             if (!nearestPort) {
                 if (!isH3Only) {
+                    this.logger.debug('H3 cache empty, trying fallback with progressive radius');
+
+                    // Progressive radius search - start small and expand
                     const fallbackRadii = Number.isFinite(maxRadiusKm)
-                        ? [Math.min(maxRadiusKm, 200)]
-                        : [200, 500, 1000, 2000, 5000];
+                        ? [Math.min(maxRadiusKm, 50), Math.min(maxRadiusKm, 200), Math.min(maxRadiusKm, 500)]
+                        : [50, 200, 500, 1000, 2000, 5000, 10000]; // 10,000km covers most of the world
 
                     for (const radius of fallbackRadii) {
+                        this.logger.debug(`Trying fallback with radius: ${radius}km`);
                         const fromPortService = await this.findNearestViaPortService(coordinate, radius);
                         if (fromPortService) {
+                            this.logger.debug(`Found port via fallback: ${fromPortService.code} at ${fromPortService.distanceKm}km`);
                             nearestPort = fromPortService;
                             break;
                         }
+                    }
+
+                    if (!nearestPort) {
+                        this.logger.debug('No port found even with fallback mechanism');
                     }
                 }
             }
 
             if (nearestPort) {
-                // Staleness guard: verify the port still exists in DB (in case of manual DB deletes)
+                // Staleness guard: ALWAYS verify the port still exists in DB (critical for manual DB changes)
+                this.logger.debug(`Validating port ${nearestPort.portId} exists in DB`);
                 try {
                     const exists = await this.portServiceClient.getPortById(nearestPort.portId);
                     if (!exists) {
-                        this.logger.warn(`Nearest candidate ${nearestPort.portId} missing in DB; skipping and invalidating caches`);
+                        this.logger.warn(`⚠️  STALE DATA: Port ${nearestPort.portId} (${nearestPort.code}) missing in DB - invalidating caches`);
                         await this.portCacheService.invalidatePortCache(nearestPort.portId);
                         if (nearestPort.h3Index) {
                             await this.portCacheService.invalidateH3IndexCache(nearestPort.h3Index);
                         }
-                        // Force a re-run by clearing result
+                        // Clear nearest cache for this coordinate too
+                        await this.portCacheService.invalidateNearestPortCache(coordinate);
+
+                        // Force a re-run with clean cache
                         nearestPort = null;
+                        this.logger.debug('Re-running search after cache invalidation');
+                        nearestPort = await this.findNearestPortUsingH3(coordinate, maxRadiusKm);
+                    } else {
+                        this.logger.debug(`✅ Port ${nearestPort.portId} validated in DB`);
                     }
                 } catch (e) {
-                    this.logger.warn(`DB validation for nearest candidate failed: ${(e as any)?.message}`);
+                    this.logger.warn(`DB validation failed: ${(e as any)?.message} - treating as missing`);
+                    nearestPort = null;
                 }
 
                 if (nearestPort) {
@@ -105,10 +143,10 @@ export class LocationDomainService {
     }
 
     private async findNearestPortUsingH3(coordinate: Coordinate, maxRadiusKm: number): Promise<NearestPortResult | null> {
-        // H3 index hesapla
+        // H3 ile index hesaplayip ring tabanli searc yapiyoruz
         const h3Index = this.locationCalculationService.coordinateToH3(coordinate);
 
-        // H3 disk ile komşu halkaları büyüterek ara
+        // H3 ring ile komşu halkaları büyüterek ara
         let ports: any[] = [];
         let ring = 0;
         const maxRing = Number.isFinite(maxRadiusKm)

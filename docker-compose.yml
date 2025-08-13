@@ -25,8 +25,8 @@ services:
     container_name: port-finder-redis
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
+    # volumes:
+    #   - redis_data:/data  # Commented out for development - cache will be cleared on restart
     networks:
       - port-finder-network
     healthcheck:
@@ -141,6 +141,11 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/port_finder
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672
+      - PORT_SERVICE_URL=http://port-service:3001
+      - LOCATION_H3_ONLY=false
+      - WARM_CACHE_ON_STARTUP=true
+      - H3_RESOLUTION=7
+      - H3_MAX_RINGS=10
     depends_on:
       postgres:
         condition: service_healthy

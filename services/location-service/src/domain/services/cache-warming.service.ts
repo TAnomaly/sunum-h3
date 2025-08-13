@@ -14,7 +14,7 @@ export class CacheWarmingService implements OnModuleInit {
         private readonly portCacheService: PortCacheService,
         private readonly locationCalculationService: LocationCalculationService,
         private readonly configService: ConfigService
-    ) {}
+    ) { }
 
     async onModuleInit(): Promise<void> {
         const warmCacheOnStartup = this.configService.get<string>('WARM_CACHE_ON_STARTUP');
@@ -35,9 +35,13 @@ export class CacheWarmingService implements OnModuleInit {
         try {
             this.logger.log('🔥 Starting cache warmup...');
 
+            // İlk önce cache'i temizle (stale data'dan kurtul)
+            await this.portCacheService.clearAllCache();
+            this.logger.log('🧹 Cache cleared before warmup');
+
             // Port Service'den tüm portları al
             const ports = await this.getAllPortsFromService();
-            
+
             if (!ports || ports.length === 0) {
                 this.logger.warn('No ports found during cache warmup');
                 return;
@@ -79,7 +83,7 @@ export class CacheWarmingService implements OnModuleInit {
                     h3Groups[h3Index].push(cachedPort);
 
                     cachedCount++;
-                    
+
                     if (cachedCount % 10 === 0) {
                         this.logger.debug(`Cached ${cachedCount}/${ports.length} ports...`);
                     }
@@ -110,13 +114,13 @@ export class CacheWarmingService implements OnModuleInit {
         try {
             // Port Service'den tüm aktif portları al
             // Bu endpoint'in var olduğunu varsayıyoruz, yoksa fallback kullan
-            
+
             // Önce büyük bir radius ile nearby ports al
             const centerCoordinate = new Coordinate(40.0, 30.0); // Dünya ortası
             const nearbyPorts = await this.portServiceClient.findNearbyPorts({
-                coordinate: { 
-                    latitude: centerCoordinate.latitude, 
-                    longitude: centerCoordinate.longitude 
+                coordinate: {
+                    latitude: centerCoordinate.latitude,
+                    longitude: centerCoordinate.longitude
                 },
                 radiusKm: 20000 // 20,000 km (dünya çapı)
             });
